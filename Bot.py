@@ -1,45 +1,34 @@
 import os
 import requests
 import feedparser
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🦅 Elite Stock Monitor\n"
-        "تم تشغيل بوت أخبار الأسهم الأمريكية.\n"
-        "اكتب /news للحصول على آخر الأخبار."
-    )
+def send_message(text):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    requests.post(url, data={
+        "chat_id": CHAT_ID,
+        "text": text
+    }, timeout=20)
 
-async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def main():
+    if not TOKEN or not CHAT_ID:
+        raise ValueError("Telegram settings are missing")
+
     url = "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL,TSLA,NVDA&region=US&lang=en-US"
-
     feed = feedparser.parse(url)
 
     if not feed.entries:
-        await update.message.reply_text("لا توجد أخبار متاحة حالياً.")
+        send_message("🦅 Elite Stock Monitor\nلا توجد أخبار جديدة حالياً.")
         return
 
+    message = "🦅 Elite Stock Monitor\n🇺🇸 أخبار الأسهم الأمريكية\n\n"
+
     for item in feed.entries[:5]:
-        title = item.title
-        link = item.link
+        message += f"📰 {item.title}\n{item.link}\n\n"
 
-        message = f"📰 {title}\n\n🔗 {link}"
-        await update.message.reply_text(message)
-
-def main():
-    if not TOKEN:
-        raise ValueError("TELEGRAM_BOT_TOKEN غير موجود")
-
-    app = Application.builder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("news", news))
-
-    print("Elite Stock Monitor Started")
-    app.run_polling()
+    send_message(message)
 
 if __name__ == "__main__":
     main()
